@@ -12,7 +12,7 @@ define GASMINER -1969723301
 define COMMAND 1556756312
 define TANK -505333199
 define PUMP 616805061
-define FLUSH 1310794736
+define FLUSHPUMP 1310794736
 define DISPL -1949054743
 define gastank1 HASH("GASTANK1")
 define DDISP HASH("debugdisplay")
@@ -38,12 +38,11 @@ lbn r2 TANK HASH("FUELTANK") RatioVolatiles Average
 slt r1 r1 MINOXY
 slt r2 r2 MINVOL
 or r3 r1 r2
-sbn DISPL DDISP Setting r3
 beqz r3 idle
-sbn FLUSH HASH("FLUSH") On r3
+sbn FLUSHPUMP HASH("FLUSH") On r3
 lbn r0 TANK HASH("FUELTANK") Quantity Average
 slt r0 r0 MINGASCARGO
-bnez r0 idle
+beqz r0 idle
 
 idle:
 yield
@@ -64,6 +63,7 @@ bnez fuelcheck idle
 seqz fuelcheck fuelcheck
 and launchready fuelcheck cargocheck
 beqz launchready idle
+sbn DISPL DDISP Setting fuelcheck
 
 readytolaunch:
 yield
