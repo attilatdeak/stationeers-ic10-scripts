@@ -1,0 +1,116 @@
+alias fuelpump d0 #Mixer or pump
+alias mode d1     #LED display (Optional)
+alias fuel d2     #LED display (Optional)
+alias minables d3 #LED display (Optional)
+alias cargo d4    #LED display (Optional)
+alias recall d5   #Lever
+alias launchready r10
+alias rocketmode r11
+alias fuelcheck r12
+alias cargocheck r13
+define GASMINER -1969723301
+define COMMAND 1556756312
+define TANK -505333199
+define PUMP 616805061
+define FLUSH 1310794736
+define DISPL -1949054743
+define gastank1 HASH("GASTANK1")
+define DDISP HASH("debugdisplay")
+define MAXFUEL 10000
+define MINFUEL 1500
+define MINGASCARGO 250
+define MAXGASCARGO 18000
+define MINOXY 0.31
+define MINVOL 0.63
+
+lb rocketmode COMMAND Mode Average
+beq rocketmode 2 travel
+beq rocketmode 4 mining
+
+flush:
+s db Setting 1
+yield
+lbn r0 TANK HASH("FUELTANK") Quantity Average
+s fuel Setting r0
+slt r0 r0 MINGASCARGO
+lbn r1 TANK HASH("FUELTANK") RatioOxygen Average
+lbn r2 TANK HASH("FUELTANK") RatioVolatiles Average
+slt r1 r1 MINOXY
+slt r2 r2 MINVOL
+or r3 r1 r2
+sbn DISPL DDISP Setting r3
+beqz r3 idle
+sbn FLUSH HASH("FLUSH") On r3
+lbn r0 TANK HASH("FUELTANK") Quantity Average
+slt r0 r0 MINGASCARGO
+bnez r0 idle
+
+idle:
+yield
+s db Setting 2
+lbn r0 TANK HASH("FUELTANK") Quantity Average
+s fuel Setting r0
+lb rocketmode COMMAND Mode Average
+s mode Setting rocketmode
+lbn r8 TANK gastank1 Pressure Average
+s cargo Setting r8
+slt cargocheck r8 MINGASCARGO
+beqz r3 idle
+lbn r0 TANK HASH("FUELTANK") Quantity Average
+s fuel Setting r0
+slt fuelcheck r0 MAXFUEL
+s fuelpump On fuelcheck
+bnez fuelcheck idle
+seqz fuelcheck fuelcheck
+and launchready fuelcheck cargocheck
+beqz launchready idle
+
+readytolaunch:
+yield
+s db Setting 3
+lbn r0 TANK HASH("FUELTANK") Quantity Average
+s fuel Setting r0
+lbn r7 TANK HASH("GASTANK1") Pressure Average
+s cargo Setting r7
+l r4 recall Setting
+and r5 launchready r4
+beqz r5 readytolaunch
+sb COMMAND Activate 1
+lb rocketmode COMMAND Mode Average
+s mode Setting rocketmode
+
+travel:
+yield
+s db Setting 4
+lbn r0 TANK HASH("FUELTANK") Quantity Average
+s fuel Setting r0
+lb rocketmode COMMAND Mode Average
+s mode Setting rocketmode
+bne rocketmode 4 travel
+
+mining:
+yield
+s db Setting 6
+l r4 recall Setting
+beqz r4 return
+lbn r7 TANK HASH("GASTANK1") Pressure Average
+s cargo Setting r7
+bgt r7 MAXGASCARGO return
+lbn r0 TANK HASH("FUELTANK") Quantity Average
+s fuel Setting r0
+blt r0 MINFUEL return
+sb GASMINER Activate 1
+lb r6 COMMAND CollectableGoods Average
+s minables Setting r6
+bnez r6 mining
+sb COMMAND Activate 0
+sb GASMINER Activate 0
+yield
+sb COMMAND Activate 2
+j travel
+
+return:
+yield
+s db Setting 7
+sb COMMAND Activate 5
+j flush
