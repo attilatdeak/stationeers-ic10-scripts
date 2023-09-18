@@ -1,0 +1,69 @@
+alias powerdisplay d0 #total current charge
+alias powergendisplay d1 #generator power output
+alias solardisp d2 #solar output
+alias battmaxc d3 #batch reader1
+alias battcurc d4 #batch reader2
+alias solarin d5 #cable analyzer on solar input
+alias chargepercent r10
+alias chargepercentprev r11
+alias solarch r12
+alias sumgenerator r13
+alias waithforminsoc r14
+alias waithformaxsoc r15
+define LSB -1388288459
+define COALGEN 813146305
+define GASGEN 1165997963
+define MINSOC 0.30
+define MAXSOC 0.90
+define MAXBC 9000001
+
+loadinfo:
+yield
+s db Setting 1
+l solarch solarin Setting
+l r0 battmaxc Setting
+l r1 battcurc Setting
+lb r2 COALGEN PowerGeneration Sum
+lb r3 GASGEN PowerGeneration Sum
+div r4 r0 MAXBC
+div r4 r1 r4 #battery average current
+add sumgenerator r2 r3
+add sumgenerator sumgenerator solarch
+div chargepercent r4 MAXBC
+slt r5 chargepercentprev chargepercent #true if less/charging false if discharge
+slt r6 chargepercent MAXSOC #true if less then maxsoc
+slt r7 chargepercent MINSOC #true if less them minsoc
+bnez r7 chargeon #what to do if charge is below minsoc
+and r8 r5 r6
+bnez r8 chargeon
+and r8 r5 r6
+beqz r8 chargeoff
+
+#bnez waithforminsoc chargeon #what to do if we are waiting to hit minsoc
+#bnez waithformaxsoc chargeoff #what to do if we are waiting to hit maxsoc
+#bnez r5 chargeoff #what to do if charging or loosing power (stay off till minsoc true)
+#bnez r6 chargeoff #what to do if charge is above maxsoc
+
+chargeon:
+yield
+s db Setting 2
+slt waithformaxsoc MAXSOC chargepercent 
+sb COALGEN On 1
+sb GASGEN On 1
+move chargepercentprev chargepercent
+s powergendisplay Setting sumgenerator
+s powerdisplay Setting chargepercent
+s solardisp Setting solarch
+j loadinfo
+
+chargeoff:
+yield
+s db Setting 3
+slt waithforminsoc chargepercent MINSOC
+sb COALGEN On 0
+sb GASGEN On 0
+move chargepercentprev chargepercent
+s powergendisplay Setting sumgenerator
+s powerdisplay Setting chargepercent
+s solardisp Setting solarch
+j loadinfo
